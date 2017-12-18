@@ -5,6 +5,10 @@ import os,json
 from urllib.parse import urlparse
 from pprint import pprint
 
+# Import credentials, cause I don't want these on GIT :)
+# Variables can be set lower down
+from creds.py import *
+
 # Define event callbacks
 def on_connect(client, userdata, flags, rc):
     print("rc: " + str(rc))
@@ -28,8 +32,12 @@ mqttc.on_connect = on_connect
 #mqttc.on_publish = on_publish
 mqttc.on_subscribe = on_subscribe
 
-# Mitsubishi Params
-###IMPORT PARAMS from .creds.py
+# Mitsubishi and MQTT Params and Creds
+# Set if you do not use creds.py or would like to override
+#user = "MITSUBISHI_USERNAME"
+#password = "MITSUBISHI_PASSWORD"
+melview_endpoint = "https://api.melview.net"
+#mqqt_url_str = 'mqtt://USER:PASSWORD@m13.cloudmqtt.com:19089'
 
 # Aircon Modes
 heat = 1
@@ -41,23 +49,22 @@ auto = 8
 # Uncomment to enable debug messages
 #mqttc.on_log = on_log
 
-url_str = IMPORT FROM CREDS
-url = urlparse(url_str)
+url = urlparse(mqqt_url_str)
 
 topic = url.path[1:] or '/sensors/hvac_downstairs/current_temp'
 
 # Get Mitshubisi Cookie
-auth_cookie = os.popen('curl --insecure -H \"Accept: application/json, text/javascript, */*\" -X POST -d \'{\"user\":\"%s\",\"pass\":\"%s\",\"appversion\":\"3.2.673a\"}\' %s/api/login.aspx -i -s | grep Set-Cookie | awk -F \'Set-Cookie: \' \'{print $2}\' | awk -F\';\' \'{print $1}\'' % ( user, password, endpoint )).read().rstrip("\n")
+auth_cookie = os.popen('curl --insecure -H \"Accept: application/json, text/javascript, */*\" -X POST -d \'{\"user\":\"%s\",\"pass\":\"%s\",\"appversion\":\"3.2.673a\"}\' %s/api/login.aspx -i -s | grep Set-Cookie | awk -F \'Set-Cookie: \' \'{print $2}\' | awk -F\';\' \'{print $1}\'' % ( user, password, melview_endpoint )).read().rstrip("\n")
 
 # Get aircon units
-json_return = os.popen('curl --insecure -X GET -H \"Accept: application/json\" -H \"Cookie: %s\" %s/api/rooms.aspx?_=1513470690197 -s' % ( auth_cookie, endpoint )).read().rstrip("\n")
+json_return = os.popen('curl --insecure -X GET -H \"Accept: application/json\" -H \"Cookie: %s\" %s/api/rooms.aspx?_=1513470690197 -s' % ( auth_cookie, melview_endpoint )).read().rstrip("\n")
 
 unit_data = json.loads(json_return)
 
 #Get downstairs unit state
 unit_id = int(unit_data[0]["units"][1]["unitid"])
 
-json_return = os.popen('curl --insecure -X GET -H \"Accept: application/json\" -H \"Cookie: %s\" -d \'{\"unitid\": %s, \"v\": 2}\' %s/api/unitcommand.aspx -s' % ( auth_cookie, unit_id, endpoint )).read().rstrip("\n")
+json_return = os.popen('curl --insecure -X GET -H \"Accept: application/json\" -H \"Cookie: %s\" -d \'{\"unitid\": %s, \"v\": 2}\' %s/api/unitcommand.aspx -s' % ( auth_cookie, unit_id, melview_endpoint )).read().rstrip("\n")
 
 unit_state = json.loads(json_return)
 #pprint(unit_state)
