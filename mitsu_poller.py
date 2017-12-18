@@ -79,6 +79,7 @@ url = urlparse(mqqt_url_str)
 mqttc.username_pw_set(url.username, url.password)
 mqttc.connect(url.hostname, url.port)
 
+
 for unit_num in range(0, unit_count, 1):
     unit_name = unit_data[0]["units"][unit_num]["room"].lower()
 # Publish stes for each unit to MQTT
@@ -94,3 +95,9 @@ for unit_num in range(0, unit_count, 1):
       mqttc.publish('/sensors_hvac/%s/mode_state_topic' % unit_name, 'dry')
     elif unit_state[unit_num]["setmode"] == fan_only:
       mqttc.publish('/sensors_hvac/%s/mode_state_topic' % unit_name, 'fan_only')
+      
+      
+      
+      
+      
+mqttc.diconnect()      

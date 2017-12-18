@@ -12,10 +12,17 @@ TBC, rough notes:
 climate:
   - platform: mqtt
     name: Downstairs
-    current_temperature_topic: /sensors/hvac_downstairs/current_temp
-    temperature_command_topic: /sensors/hvac_downstairs/target_temp
-    temperature_state_topic: /sensors/hvac_downstairs/temperature_state_topic
-    power_command_topic: /sensors/hvac_downstairs/power_command_topic
-    mode_command_topic: /sensors/hvac_downstairs/mode_command_topic
-    mode_state_topic: /sensors/hvac_downstairs/mode_state_topic
-
+    current_temperature_topic: /sensors_hvac/downstairs/current_temp
+    temperature_command_topic: /sensors_hvac/downstairs/target_temp
+    temperature_state_topic: /sensors_hvac/downstairs/temperature_state_topic
+    power_command_topic: /sensors_hvac/downstairs/power_command_topic
+    mode_command_topic: /sensors_hvac/downstairs/mode_command_topic
+    mode_state_topic: /sensors_hvac/downstairs/mode_state_topic
+  - platform: mqtt
+    name: Lounge
+    current_temperature_topic: /sensors_hvac/lounge/current_temp
+    temperature_command_topic: /sensors_hvac/lounge/target_temp
+    temperature_state_topic: /sensors_hvac/lounge/temperature_state_topic
+    power_command_topic: /sensors_hvac/lounge/power_command_topic
+    mode_command_topic: /sensors_hvac/lounge/mode_command_topic
+    mode_state_topic: /sensors_hvac/lounge/mode_state_topic
