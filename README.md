@@ -4,6 +4,7 @@ This is a MQTT poller for the Mitsubishi range of WIFI controllers. Tested using
 
 ## Requirements:
 pip3 install paho-mqtt
+pip3 install configparser
 
 ## Usage:
 TBC, rough notes:
