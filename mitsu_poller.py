@@ -73,7 +73,7 @@ for unit_num in range(0, unit_count, 1):
     unit_state.append(json.loads(json_return))
 
 # Connect to MQTT, I'm using CloudMQTT but this will work using mosquito 
-# Uncomment to enable debug messages
+# Uncomment to enable debug messages.
 #mqttc.on_log = on_log
 url = urlparse(mqqt_url_str)
 mqttc.username_pw_set(url.username, url.password)
