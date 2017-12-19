@@ -101,8 +101,6 @@ for unit_num in range(0, unit_count, 1):
         print(key, value)
         if key == 'mode':
             value = aircon_modes[unit_state[unit_num]["setmode"]]
-        if key == 'mode':
-            value = aircon_modes[unit_state[unit_num]["setmode"]]
         mqttc.publish('/sensors_hvac/%s/%s' % (unit_name, key), value)
 #    mqttc.publish('/sensors_hvac/%s/temperature_state_topic' % unit_name, int(unit_data["units"][unit_num]["settemp"]))
 #    mqttc.publish('/sensors_hvac/%s/mode_state_topic' % unit_name, aircon_modes[unit_state[unit_num]["setmode"]])
