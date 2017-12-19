@@ -98,7 +98,6 @@ for unit_num in range(0, unit_count, 1):
     unit_name = unit_data["units"][unit_num]["room"].lower()
 # Publish states for each unit to MQTT
     for key, value in unit_data["units"][unit_num].items():
-        print(key, value)
         if key == 'mode':
             value = aircon_modes[unit_state[unit_num]["setmode"]]
         mqttc.publish('/sensors_hvac/%s/%s' % (unit_name, key), value)
