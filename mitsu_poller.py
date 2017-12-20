@@ -100,7 +100,10 @@ for unit_num in range(0, unit_count, 1):
 # Publish states for each unit to MQTT
     for key, value in unit_state[unit_num].items():
         if key == 'setmode':
-            value = aircon_modes[value]
+            if unit_state[unit_num]['power'] == 1:
+                value = aircon_modes[value]
+            else:
+                value = aircon_power[0]
         if key == 'setfan':
             value = aircon_fanspeeds[value]
         if key == 'airdir':
