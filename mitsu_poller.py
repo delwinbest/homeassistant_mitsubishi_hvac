@@ -56,6 +56,7 @@ melview_endpoint = "https://api.melview.net"
 aircon_modes = ['0','heat','dry','cool','4','5','6','fan_only','auto']
 aircon_fanspeeds = ['auto','low','low','medium','medium','high','high']
 aircon_airdir = ['off','off','off','off','off','off','off','on']
+aircon_power = ['off','on']
 
 # Get Mitshubisi Cookie
 headers = {'Accept': 'application/json, text/javascript, */*'}
@@ -102,8 +103,9 @@ for unit_num in range(0, unit_count, 1):
         if key == 'setfan':
             value = aircon_fanspeeds[value]
         if key == 'airdir':
-            print(value)
             value = aircon_airdir[value]
+        if key == 'power':
+            value = aircon_power[value]
         mqttc.publish('/sensors_hvac/%s/%s' % (unit_name, key), value)
       
 #mqttc.loop_forever()      
