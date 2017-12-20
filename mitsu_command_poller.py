@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# This script polls the Mitsubishi Service for the current units associated with the acocunt and then queries the unit data.
-# All data is then transformed and pushed to MQTT
+# This script should run as a service. 
+# It will subscribe to the MQTT topics, and one revieving a command, post the command the the Mitsubishi service.
 import paho.mqtt.client as mqtt
 import os,json
 from urllib.parse import urlparse
@@ -52,12 +52,14 @@ password = config.get("creds", "password")
 mqqt_url_str = config.get("creds", "mqqt_url_str")
 melview_endpoint = "https://api.melview.net"
 
+'''
 # Aircon Modes
 # See what I did here :)
 aircon_modes = ['0','heat','dry','cool','4','5','6','fan_only','auto']
 aircon_fanspeeds = ['auto','low','low','medium','medium','high','high']
 aircon_airdir = ['off','off','off','off','off','off','off','on']
 aircon_power = ['off','on']
+
 
 # Get Mitshubisi Cookie
 headers = {'Accept': 'application/json, text/javascript, */*'}
@@ -83,6 +85,7 @@ for unit_num in range(0, unit_count, 1):
     r = requests.post("%s/api/unitcommand.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
     json_return = r.text
     unit_state.append(json.loads(json_return))
+'''
 
 # Connect to MQTT, I'm using CloudMQTT but this will work using mosquito 
 # Uncomment to enable debug messages.
@@ -92,23 +95,10 @@ mqttc.username_pw_set(url.username, url.password)
 mqttc.connect(url.hostname, url.port)
 
 # Subscript to the HVAC topic
-#mqttc.subscribe([("/sensors_hvac/lounge/mode_command_topic", 0),("/sensors_hvac/downstairs/mode_command_topic", 0),("/sensors_hvac/lounge/target_temp", 0),("/sensors_hvac/downstairs/target_temp", 0)])
+mqttc.subscribe([("/sensors_hvac/lounge/mode_command_topic", 0),("/sensors_hvac/downstairs/mode_command_topic", 0),("/sensors_hvac/lounge/target_temp", 0),("/sensors_hvac/downstairs/target_temp", 0)])
 
-# Iterate through the json list and publish each key/value pair to a topic.
-for unit_num in range(0, unit_count, 1):
-    unit_name = unit_data["units"][unit_num]["room"].lower()
-# Publish states for each unit to MQTT
-    for key, value in unit_state[unit_num].items():
-        if key == 'setmode':
-            value = aircon_modes[value]
-        if key == 'setfan':
-            value = aircon_fanspeeds[value]
-        if key == 'airdir':
-            value = aircon_airdir[value]
-        if key == 'power':
-            value = aircon_power[value]
-        mqttc.publish('/sensors_hvac/%s/%s' % (unit_name, key), value)
+
       
-#mqttc.loop_forever()      
+mqttc.loop_forever()      
 mqttc.disconnect() 
    
