@@ -54,8 +54,8 @@ melview_endpoint = "https://api.melview.net"
 # Aircon Modes
 # See what I did here :)
 aircon_modes = ['0','heat','dry','cool','4','5','6','fan_only','auto']
-aircon_fanspeeds = ['0','1','2','3','4','5']
-
+aircon_fanspeeds = ['auto','low','low','medium','medium','high','high']
+aircon_airdir = ['off','off','off','off','off','off','off','on']
 
 # Get Mitshubisi Cookie
 headers = {'Accept': 'application/json, text/javascript, */*'}
@@ -70,7 +70,6 @@ headers = {'Accept': 'application/json, text/javascript, */*', 'Cookie': auth_co
 r = requests.post("%s/api/rooms.aspx?_=1513470690197" % melview_endpoint, headers=headers)
 json_format = json.loads(r.text)
 unit_data = json_format[0]
-
 # Count the number of airconditioners
 unit_count = len(unit_data["units"])
 
@@ -97,13 +96,15 @@ mqttc.connect(url.hostname, url.port)
 for unit_num in range(0, unit_count, 1):
     unit_name = unit_data["units"][unit_num]["room"].lower()
 # Publish states for each unit to MQTT
-    for key, value in unit_data["units"][unit_num].items():
-        if key == 'mode':
-            value = aircon_modes[unit_state[unit_num]["setmode"]]
+    for key, value in unit_state[unit_num].items():
+        if key == 'setmode':
+            value = aircon_modes[value]
+        if key == 'setfan':
+            value = aircon_fanspeeds[value]
+        if key == 'airdir':
+            print(value)
+            value = aircon_airdir[value]
         mqttc.publish('/sensors_hvac/%s/%s' % (unit_name, key), value)
-#    mqttc.publish('/sensors_hvac/%s/temperature_state_topic' % unit_name, int(unit_data["units"][unit_num]["settemp"]))
-#    mqttc.publish('/sensors_hvac/%s/mode_state_topic' % unit_name, aircon_modes[unit_state[unit_num]["setmode"]])
-
       
 #mqttc.loop_forever()      
 mqttc.disconnect() 

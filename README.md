@@ -57,3 +57,28 @@ REPLY:
 }
 
 
+List Units:
+
+{'bschedule': '0',
+ 'building': 'Building',
+ 'buildingid': '9577',
+ 'units': [{'mode': '8',
+            'power': 'on',
+            'room': 'Lounge',
+            'schedule1': 15003,
+            'settemp': '23',
+            'status': '',
+            'temp': '23',
+            'unitid': '114028',
+            'wifi': '3'},
+           {'mode': '8',
+            'power': 'on',
+            'room': 'Downstairs',
+            'schedule1': 15002,
+            'settemp': '23',
+            'status': '',
+            'temp': '23',
+            'unitid': '116903',
+            'wifi': '3'}]}
+
+
