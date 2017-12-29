@@ -8,7 +8,28 @@ from pprint import pprint
 import configparser 
 import requests
 
+# Mitsubishi Functions
+def mitsu_getcookie():
+    headers = {'Accept': 'application/json, text/javascript, */*'}
+    payload = {'user': user, 'pass': password, 'appversion': '3.2.673a'}
+    r = requests.post("%s/api/login.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
+    return r.headers.get('Set-cookie')
 
+def mitsu_getunits():
+    r = requests.post("%s/api/rooms.aspx?_=1513470690197" % melview_endpoint, headers=headers)
+    json_format = json.loads(r.text)
+    return json_format[0]
+
+def mitsu_getstates():
+    unit_state = []
+    for unit_num in range(0, unit_count, 1):
+        unit_id = int(unit_data["units"][unit_num]["unitid"])
+        payload = {'unitid': unit_id, 'v': '2'}
+        r = requests.post("%s/api/unitcommand.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
+        json_return = r.text
+        unit_state.append(json.loads(json_return))
+    return unit_state
+    
 # Define event callbacks
 def on_connect(client, userdata, flags, rc):
     print("rc: " + str(rc))
@@ -60,33 +81,18 @@ aircon_airdir = ['off','off','off','off','off','off','off','on']
 aircon_power = ['off','on']
 
 # Get Mitshubisi Cookie
-headers = {'Accept': 'application/json, text/javascript, */*'}
-payload = {'user': user, 'pass': password, 'appversion': '3.2.673a'}
-r = requests.post("%s/api/login.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
-if r.status_code != 200:
-    print("ERROR: Melview endpoint HTTP error code %s" % r.status_code )
+auth_cookie = mitsu_getcookie()
+headers = {'Accept': 'application/json, text/javascript, */*', 'Cookie': auth_cookie }
 
 # Get aircon units
-auth_cookie = r.headers.get('Set-cookie')
-headers = {'Accept': 'application/json, text/javascript, */*', 'Cookie': auth_cookie }
-r = requests.post("%s/api/rooms.aspx?_=1513470690197" % melview_endpoint, headers=headers)
-json_format = json.loads(r.text)
-unit_data = json_format[0]
+unit_data = mitsu_getunits()
 # Count the number of airconditioners
 unit_count = len(unit_data["units"])
-
 # Get the states for each unit
-unit_state = []
-for unit_num in range(0, unit_count, 1):
-    unit_id = int(unit_data["units"][unit_num]["unitid"])
-    payload = {'unitid': unit_id, 'v': '2'}
-    r = requests.post("%s/api/unitcommand.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
-    json_return = r.text
-    unit_state.append(json.loads(json_return))
+unit_state =  mitsu_getstates()
+
 
 # Connect to MQTT, I'm using CloudMQTT but this will work using mosquito 
-# Uncomment to enable debug messages.
-#mqttc.on_log = on_log
 url = urlparse(mqqt_url_str)
 mqttc.username_pw_set(url.username, url.password)
 mqttc.connect(url.hostname, url.port)
