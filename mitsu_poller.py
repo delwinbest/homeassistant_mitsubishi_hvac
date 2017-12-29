@@ -80,6 +80,7 @@ aircon_fanspeeds = ['auto','low','low','medium','medium','high','high']
 aircon_airdir = ['off','off','off','off','off','off','off','on']
 aircon_power = ['off','on']
 
+
 # Get Mitshubisi Cookie
 auth_cookie = mitsu_getcookie()
 headers = {'Accept': 'application/json, text/javascript, */*', 'Cookie': auth_cookie }

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # This script should run as a service. 
 # It will subscribe to the MQTT topics, and one revieving a command, post the command the the Mitsubishi service.
+# WARNING: There is NO error handling in this script yet
 import paho.mqtt.client as mqtt
 import os,json
 from urllib.parse import urlparse
@@ -20,6 +21,12 @@ def mitsu_getunits():
     json_format = json.loads(r.text)
     return json_format[0]
 
+def mitsu_sendcmd(unit_id, shortcmd, value):
+    payload = {"unitid":"116903", "v":2, "lc":1, "commands":"AV5"}
+    r = requests.post("%s/api/unitcommand.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
+    json_format = json.loads(r.text)
+    return json_format[0]
+    
 def mitsu_getstates():
     unit_state = []
     for unit_num in range(0, unit_count, 1):
@@ -44,7 +51,16 @@ def on_message(client, obj, msg):
     command = topic[3][1:]
     value = msg.payload.decode('ascii')
     print(unit_name + command + value)
-#    if command == 'mode_command_topic':
+    # Find Unit ID
+    if command in mitsu_command_codes:
+        for unit_num in range(0, unit_count, 1):
+            if  unit_name.capitalize() in unit_data["units"][unit_num].values():
+                unit_id = unit_data["units"][unit_num]["unitid"]
+        mitsu_sendcmd(unit_id, mitsu_command_codes[command], value)
+    else:
+        print("Unsupported command")
+        return
+#   if command == 'mode_command_topic':
 #        mode = aircon_modes.index(msg.payload.decode('ascii'))
 #        mqttc.publish('/sensors_hvac/%s/mode_state_topic' % unit_name, aircon_modes[unit_state[unit_num]["setmode"]])
 
@@ -71,6 +87,8 @@ user = config.get("creds", "user")
 password = config.get("creds", "password")
 mqqt_url_str = config.get("creds", "mqqt_url_str")
 melview_endpoint = "https://api.melview.net"
+mitsu_command_codes = {"setfan":"FS", "airdir":"AV"}
+aircon_fanspeeds = ['auto','low','low','medium','medium','high','high']
 
 ## First we need to query the server and get a list of supported commands, 
 ## This will tell us what topics to subscribe to
