@@ -22,10 +22,10 @@ def mitsu_getunits():
     return json_format[0]
 
 def mitsu_sendcmd(unit_id, shortcmd, value):
-    payload = {"unitid":"116903", "v":2, "lc":1, "commands":"AV5"}
+    payload = {"unitid":"%s" % (unit_id), "v":2, "lc":1, "commands":"%s%s" %(shortcmd, value)}
     r = requests.post("%s/api/unitcommand.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
     json_format = json.loads(r.text)
-    return json_format[0]
+    return json_format
     
 def mitsu_getstates():
     unit_state = []
@@ -36,9 +36,20 @@ def mitsu_getstates():
         json_return = r.text
         unit_state.append(json.loads(json_return))
     return unit_state
-    
-    
-    
+
+def mitsu_senddata(datadict):       
+    for key, value in datadict.items():
+        if key == 'setmode':
+            if datadict['power'] == 1:
+                value = aircon_modes[value]
+            else:
+                value = aircon_modes[9]
+        if key == 'setfan':
+            value = aircon_fanspeeds[value]
+        if key == 'airdir':
+            value = aircon_airdir[value]
+        mqttc.publish('/sensors_hvac/%s/%s' % (unit_name, key), value)
+                
 # Define event callbacks
 def on_connect(client, userdata, flags, rc):
     print("rc: " + str(rc))
@@ -49,14 +60,29 @@ def on_message(client, obj, msg):
     topic = msg.topic.split("/")
     unit_name= topic[2]
     command = topic[3][1:]
-    value = msg.payload.decode('ascii')
-    print(unit_name + command + value)
+    data = msg.payload.decode('ascii')
+    # Assign default to value, might be overriden later by specific commands
+    value = data
+    #print(unit_name + command + data)
     # Find Unit ID
     if command in mitsu_command_codes:
         for unit_num in range(0, unit_count, 1):
             if  unit_name.capitalize() in unit_data["units"][unit_num].values():
-                unit_id = unit_data["units"][unit_num]["unitid"]
-        mitsu_sendcmd(unit_id, mitsu_command_codes[command], value)
+                unit_id = unit_data["units"][unit_num]["unitid"]      
+        if command == 'setmode':
+            if data == "off":
+                value = 0
+                command = 'power'
+            else:
+                value = aircon_modes.index(data)
+        if command == 'setfan':
+            value = aircon_cfanspeed[data]
+        if command == 'airdir':
+            value = aircon_cairdir[value]   
+        r = mitsu_sendcmd(unit_id, mitsu_command_codes[command], value)
+        # Send return data to MQTT and update Home Assistant
+        mitsu_senddata(r)
+        
     else:
         print("Unsupported command")
         return
@@ -87,25 +113,30 @@ user = config.get("creds", "user")
 password = config.get("creds", "password")
 mqqt_url_str = config.get("creds", "mqqt_url_str")
 melview_endpoint = "https://api.melview.net"
-mitsu_command_codes = {"setfan":"FS", "airdir":"AV"}
+
+# Mitsubishi comman code translation
+mitsu_command_codes = {"setfan":"FS", "airdir":"AV", "setmode":"PW1,MD", "power":"PW", "settemp":"TS"}
+# Mapping values (Mitsubishi) to command words (HA)
+aircon_modes = ['0','heat','dry','cool','4','5','6','fan_only','auto','off']
 aircon_fanspeeds = ['auto','low','low','medium','medium','high','high']
+aircon_airdir = ['off','off','off','off','off','off','off','on']
+# Mapping words (HA) to command values (Mitsubishi)
+aircon_cairdir = {"off":3,"on":7}
+aircon_cfanspeed = {"auto":"0","low":"1","medium":"4","high":"6"}
+
 
 ## First we need to query the server and get a list of supported commands, 
 ## This will tell us what topics to subscribe to
 ## We do this once when the script is started
-
 # Get Mitshubisi Cookie
 auth_cookie = mitsu_getcookie()
 headers = {'Accept': 'application/json, text/javascript, */*', 'Cookie': auth_cookie }
-
 # Get aircon units
 unit_data = mitsu_getunits()
 # Count the number of airconditioners
 unit_count = len(unit_data["units"])
 # Get the states for each unit
 unit_state =  mitsu_getstates()
-
-
 
 # Connect to MQTT, I'm using CloudMQTT but this will work using mosquito 
 # Uncomment to enable debug messages.
@@ -114,10 +145,9 @@ url = urlparse(mqqt_url_str)
 mqttc.username_pw_set(url.username, url.password)
 mqttc.connect(url.hostname, url.port)
 
-# Subscript to the HVAC topic
+# Subscript to the HVAC topics
 for unit_num in range(0, unit_count, 1):
     unit_name = unit_data["units"][unit_num]["room"].lower()
-# Publish states for each unit to MQTT
     for key, value in unit_state[unit_num].items():
         topic = 'c'+key
         mqttc.subscribe([("/sensors_hvac/%s/%s" % (unit_name, topic), 0),("/sensors_hvac/downstairs/mode_command_topic", 0),("/sensors_hvac/lounge/target_temp", 0),("/sensors_hvac/downstairs/target_temp", 0)])

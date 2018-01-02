@@ -29,23 +29,28 @@ def mitsu_getstates():
         json_return = r.text
         unit_state.append(json.loads(json_return))
     return unit_state
-    
+
+def mitsu_senddata(datadict):       
+    for key, value in datadict.items():
+        if key == 'setmode':
+            if datadict['power'] == 1:
+                value = aircon_modes[value]
+            else:
+                value = aircon_modes[9]
+        if key == 'setfan':
+            value = aircon_fanspeeds[value]
+        if key == 'airdir':
+            value = aircon_airdir[value]
+        mqttc.publish('/sensors_hvac/%s/%s' % (unit_name, key), value)
+            
 # Define event callbacks
 def on_connect(client, userdata, flags, rc):
     print("rc: " + str(rc))
 
 # Handle incoming MQQT message and translate
 def on_message(client, obj, msg):
-    # print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+     print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
     # Break out the command and topic from the MQQT topic
-    topic = msg.topic.split("/")
-    unit_name= topic[2]
-    command = topic[3]
-    print(command)
-    if command == 'mode_command_topic':
-        mode = aircon_modes.index(msg.payload.decode('ascii'))
-        mqttc.publish('/sensors_hvac/%s/mode_state_topic' % unit_name, aircon_modes[unit_state[unit_num]["setmode"]])
-
 
 #def on_publish(client, obj, mid):
 #    print("mid: " + str(mid))
@@ -61,7 +66,7 @@ mqttc = mqtt.Client()
 mqttc.on_message = on_message
 #mqttc.on_connect = on_connect
 #mqttc.on_publish = on_publish
-mqttc.on_subscribe = on_subscribe
+#mqttc.on_subscribe = on_subscribe
 
 # Mitsubishi and MQTT Params and Creds
 # Import credentials, cause I don't want these on GIT :)
@@ -73,12 +78,16 @@ password = config.get("creds", "password")
 mqqt_url_str = config.get("creds", "mqqt_url_str")
 melview_endpoint = "https://api.melview.net"
 
-# Aircon Modes
-# See what I did here :)
-aircon_modes = ['0','heat','dry','cool','4','5','6','fan_only','auto']
+# Mitsubishi comman code translation
+mitsu_command_codes = {"setfan":"FS", "airdir":"AV", "setmode":"PW1,MD", "power":"PW"}
+# Mapping values (Mitsubishi) to command words (HA)
+aircon_modes = ['0','heat','dry','cool','4','5','6','fan_only','auto','off']
 aircon_fanspeeds = ['auto','low','low','medium','medium','high','high']
 aircon_airdir = ['off','off','off','off','off','off','off','on']
-aircon_power = ['off','on']
+# Mapping words (HA) to command values (Mitsubishi)
+aircon_cairdir = {"off":3,"on":7}
+aircon_cfanspeed = {"auto":"0","low":"1","medium":"4","high":"6"}
+
 
 
 # Get Mitshubisi Cookie
@@ -104,21 +113,9 @@ mqttc.connect(url.hostname, url.port)
 # Iterate through the json list and publish each key/value pair to a topic.
 for unit_num in range(0, unit_count, 1):
     unit_name = unit_data["units"][unit_num]["room"].lower()
-# Publish states for each unit to MQTT
-    for key, value in unit_state[unit_num].items():
-        if key == 'setmode':
-            if unit_state[unit_num]['power'] == 1:
-                value = aircon_modes[value]
-            else:
-                value = aircon_power[0]
-        if key == 'setfan':
-            value = aircon_fanspeeds[value]
-        if key == 'airdir':
-            value = aircon_airdir[value]
-        if key == 'power':
-            value = aircon_power[value]
-        mqttc.publish('/sensors_hvac/%s/%s' % (unit_name, key), value)
-      
-#mqttc.loop_forever()      
+    # Publish states for each unit to MQTT
+    mitsu_senddata(unit_state[unit_num])
+
+    
 mqttc.disconnect() 
    
