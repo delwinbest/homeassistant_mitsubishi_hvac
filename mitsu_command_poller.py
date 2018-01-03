@@ -3,12 +3,27 @@
 # It will subscribe to the MQTT topics, and one revieving a command, post the command the the Mitsubishi service.
 # WARNING: There is NO error handling in this script yet
 import paho.mqtt.client as mqtt
-import os,json
+import os, json
 from urllib.parse import urlparse
 from pprint import pprint
 import configparser 
 import requests
 
+
+def createDaemon():
+# This function create a service/Daemon
+  try:
+    # Store the Fork PID
+    pid = os.fork()
+    if pid > 0:
+      print("PID: %d" % pid)
+      os._exit(0)
+  except OSError as error:
+    print("Unable to fork. Error: %d (%s)" % (error.errno, error.strerror))
+    os._exit(1)
+
+  run_poller()
+  
 # Mitsubishi Functions
 def mitsu_getcookie():
     headers = {'Accept': 'application/json, text/javascript, */*'}
@@ -97,63 +112,71 @@ def on_subscribe(client, obj, mid, granted_qos):
 def on_log(client, obj, level, string):
     print(string)
 
-mqttc = mqtt.Client()
-# Assign event callbacks
-mqttc.on_message = on_message
-#mqttc.on_connect = on_connect
-#mqttc.on_publish = on_publish
-#mqttc.on_subscribe = on_subscribe
+def run_poller():
+    #def run_poller():     
+    mqttc.loop_forever()      
+    mqttc.disconnect() 
 
-# Mitsubishi and MQTT Params and Creds
-# Import credentials, cause I don't want these on GIT :)
-# Set if you do not use creds.py or would like to override
-config = configparser.ConfigParser()
-config.read("config.ini")
-user = config.get("creds", "user")
-password = config.get("creds", "password")
-mqqt_url_str = config.get("creds", "mqqt_url_str")
-melview_endpoint = "https://api.melview.net"
+if __name__ == '__main__':
+    mqttc = mqtt.Client()
+    # Assign event callbacks
+    mqttc.on_message = on_message
+    #mqttc.on_connect = on_connect
+    #mqttc.on_publish = on_publish
+    #mqttc.on_subscribe = on_subscribe
+    
+    # Mitsubishi and MQTT Params and Creds
+    # Import credentials, cause I don't want these on GIT :)
+    # Set if you do not use creds.py or would like to override
+    config = configparser.ConfigParser()
+    config.read("config.ini")
+    user = config.get("creds", "user")
+    password = config.get("creds", "password")
+    mqqt_url_str = config.get("creds", "mqqt_url_str")
+    melview_endpoint = "https://api.melview.net"
+    
+    # Mitsubishi comman code translation
+    mitsu_command_codes = {"setfan":"FS", "airdir":"AV", "setmode":"PW1,MD", "power":"PW", "settemp":"TS"}
+    # Mapping values (Mitsubishi) to command words (HA)
+    aircon_modes = ['0','heat','dry','cool','4','5','6','fan_only','auto','off']
+    aircon_fanspeeds = ['auto','low','low','medium','medium','high','high']
+    aircon_airdir = ['off','off','off','off','off','off','off','on']
+    # Mapping words (HA) to command values (Mitsubishi)
+    aircon_cairdir = {"off":3,"on":7}
+    aircon_cfanspeed = {"auto":"0","low":"1","medium":"4","high":"6"}
+    
+        ## First we need to query the server and get a list of supported commands, 
+    ## This will tell us what topics to subscribe to
+    ## We do this once when the script is started
+    # Get Mitshubisi Cookie
+    auth_cookie = mitsu_getcookie()
+    headers = {'Accept': 'application/json, text/javascript, */*', 'Cookie': auth_cookie }
+    # Get aircon units
+    unit_data = mitsu_getunits()
+    # Count the number of airconditioners
+    unit_count = len(unit_data["units"])
+    # Get the states for each unit
+    unit_state =  mitsu_getstates()
+    
+    # Connect to MQTT, I'm using CloudMQTT but this will work using mosquito 
+    # Uncomment to enable debug messages.
+    #mqttc.on_log = on_log
+    url = urlparse(mqqt_url_str)
+    mqttc.username_pw_set(url.username, url.password)
+    mqttc.connect(url.hostname, url.port)
+    
+    # Subscript to the HVAC topics
+    for unit_num in range(0, unit_count, 1):
+        unit_name = unit_data["units"][unit_num]["room"].lower()
+        for key, value in unit_state[unit_num].items():
+            topic = 'c'+key
+            mqttc.subscribe([("/sensors_hvac/%s/%s" % (unit_name, topic), 0),("/sensors_hvac/downstairs/mode_command_topic", 0),("/sensors_hvac/lounge/target_temp", 0),("/sensors_hvac/downstairs/target_temp", 0)])
+  
+    
+    
+    createDaemon()
 
-# Mitsubishi comman code translation
-mitsu_command_codes = {"setfan":"FS", "airdir":"AV", "setmode":"PW1,MD", "power":"PW", "settemp":"TS"}
-# Mapping values (Mitsubishi) to command words (HA)
-aircon_modes = ['0','heat','dry','cool','4','5','6','fan_only','auto','off']
-aircon_fanspeeds = ['auto','low','low','medium','medium','high','high']
-aircon_airdir = ['off','off','off','off','off','off','off','on']
-# Mapping words (HA) to command values (Mitsubishi)
-aircon_cairdir = {"off":3,"on":7}
-aircon_cfanspeed = {"auto":"0","low":"1","medium":"4","high":"6"}
 
 
-## First we need to query the server and get a list of supported commands, 
-## This will tell us what topics to subscribe to
-## We do this once when the script is started
-# Get Mitshubisi Cookie
-auth_cookie = mitsu_getcookie()
-headers = {'Accept': 'application/json, text/javascript, */*', 'Cookie': auth_cookie }
-# Get aircon units
-unit_data = mitsu_getunits()
-# Count the number of airconditioners
-unit_count = len(unit_data["units"])
-# Get the states for each unit
-unit_state =  mitsu_getstates()
 
-# Connect to MQTT, I'm using CloudMQTT but this will work using mosquito 
-# Uncomment to enable debug messages.
-#mqttc.on_log = on_log
-url = urlparse(mqqt_url_str)
-mqttc.username_pw_set(url.username, url.password)
-mqttc.connect(url.hostname, url.port)
-
-# Subscript to the HVAC topics
-for unit_num in range(0, unit_count, 1):
-    unit_name = unit_data["units"][unit_num]["room"].lower()
-    for key, value in unit_state[unit_num].items():
-        topic = 'c'+key
-        mqttc.subscribe([("/sensors_hvac/%s/%s" % (unit_name, topic), 0),("/sensors_hvac/downstairs/mode_command_topic", 0),("/sensors_hvac/lounge/target_temp", 0),("/sensors_hvac/downstairs/target_temp", 0)])
-
-
-      
-mqttc.loop_forever()      
-mqttc.disconnect() 
    

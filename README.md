@@ -3,13 +3,19 @@ This is a MQTT poller for the Mitsubishi range of WIFI controllers. Tested using
 
 
 ## Requirements:
-pip3 install paho-mqtt
-pip3 install configparser
-pip3 install requests
+```
+sudo apt-get install python3-pip
+sudo pip3 install paho-mqtt configparser requests
+```
 
 ## Usage:
-TBC, rough notes:
+There are two scripts. 
+mitsu_poller.py: Polls the Mitsubishi Melview API each time it is run. It publishes all unit data to MQTT
+mitsu_command_poller.py: Daemonizes itself and subscripts to all MQTT topics for all units found. When a command is published to MQTT from
+Home Assistant, this service relays it to the Melview API before updating the Home Assistant Queues.
 
+
+## Home Assistant Sample Configuration
 climate:
   - platform: mqtt
     name: Downstairs
@@ -28,10 +34,8 @@ climate:
     mode_command_topic: /sensors_hvac/downstairs/mode_command_topic
     mode_state_topic: /sensors_hvac/downstairs/mode_state_topic
     
-    
-    
-    
-## Melview API return format
+     
+## Mitsubishi Melview API return format
 POST /api/unitcommand.aspx
 {	"unitid":"116903",
 	"v":2,
@@ -58,7 +62,6 @@ REPLY:
 
 
 List Units:
-
 {'bschedule': '0',
  'building': 'Building',
  'buildingid': '9577',
