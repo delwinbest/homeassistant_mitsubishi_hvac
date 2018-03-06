@@ -7,12 +7,32 @@ This is a MQTT poller for the Mitsubishi range of WIFI controllers. Tested using
 sudo apt-get install python3-pip
 sudo pip3 install paho-mqtt configparser requests
 ```
+To use the scripts, clone this repo into a direcory. Create the config file (see below), set up Home Assistant (also outlined below) and execute the script.
 
 ## Usage:
 There are two scripts. 
 mitsu_poller.py: Polls the Mitsubishi Melview API each time it is run. It publishes all unit data to MQTT
 mitsu_command_poller.py: Daemonizes itself and subscripts to all MQTT topics for all units found. When a command is published to MQTT from
 Home Assistant, this service relays it to the Melview API before updating the Home Assistant Queues.
+
+To use, add a CRON which executes the script regularly, ie:
+```
+# m h  dom mon dow   command
+*/5 * * * * /root/mitsu/mitsu_poller.py
+```
+NOTE: I would not poll more frequently than every 5 minutes. Melview have blocked my IP a couple of times during development probably assuming I'm DOS'ing their service.
+
+## Configuration
+In order to use the scripts, credentials are needed for the melview service as well as the MQQT broker.
+Within the directory where the scripts are located, create a file named config.ini. This should contain creds in the following format:
+
+```
+[creds]
+user: MELVIEW_USERNAME
+password: MELVIEW_PASSWORD
+endpoint: https://api.melview.net
+mqqt_url_str: mqtt://MQQT_USER:MQQT_PASSWORD@m13.cloudmqtt.com:19089
+```
 
 
 ## Home Assistant Sample Configuration
