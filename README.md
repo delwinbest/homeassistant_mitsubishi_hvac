@@ -33,7 +33,7 @@ password: MELVIEW_PASSWORD
 endpoint: https://api.melview.net
 mqqt_url_str: mqtt://MQQT_USER:MQQT_PASSWORD@m13.cloudmqtt.com:19089
 ```
-
+NOTE: MQQT server and port will vary based on your provider and set up.
 
 ## Home Assistant Sample Configuration
 climate:
