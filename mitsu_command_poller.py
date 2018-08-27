@@ -27,7 +27,7 @@ def createDaemon():
 # Mitsubishi Functions
 def mitsu_getcookie():
     headers = {'Accept': 'application/json, text/javascript, */*'}
-    payload = {'user': user, 'pass': password, 'appversion': '3.2.673a'}
+    payload = {'user': user, 'pass': password, 'appversion': '3.3.838'}
     r = requests.post("%s/api/login.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
     return r.headers.get('Set-cookie')
 
@@ -68,17 +68,18 @@ def mitsu_senddata(datadict):
 # Define event callbacks
 def on_connect(client, userdata, flags, rc):
     print("rc: " + str(rc))
+    
 # Handle incoming MQQT message and translate
 def on_message(client, obj, msg):
     # print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
     # Break out the command and topic from the MQQT topic
     topic = msg.topic.split("/")
     unit_name= topic[2]
-    command = topic[3][1:]
+    command = topic[3]
     data = msg.payload.decode('ascii')
     # Assign default to value, might be overriden later by specific commands
     value = data
-    #print(unit_name + command + data)
+    print(unit_name + command + data)
     # Find Unit ID
     if command in mitsu_command_codes:
         for unit_num in range(0, unit_count, 1):
@@ -109,6 +110,7 @@ def on_message(client, obj, msg):
 #    print("mid: " + str(mid))
 def on_subscribe(client, obj, mid, granted_qos):
     print("Subscribed: " + str(mid) + " " + str(granted_qos))
+
 def on_log(client, obj, level, string):
     print(string)
 
@@ -145,7 +147,7 @@ if __name__ == '__main__':
     aircon_cairdir = {"off":3,"on":7}
     aircon_cfanspeed = {"auto":"0","low":"1","medium":"4","high":"6"}
     
-        ## First we need to query the server and get a list of supported commands, 
+    ## First we need to query the server and get a list of supported commands, 
     ## This will tell us what topics to subscribe to
     ## We do this once when the script is started
     # Get Mitshubisi Cookie
@@ -160,7 +162,7 @@ if __name__ == '__main__':
     
     # Connect to MQTT, I'm using CloudMQTT but this will work using mosquito 
     # Uncomment to enable debug messages.
-    #mqttc.on_log = on_log
+    mqttc.on_log = on_log
     url = urlparse(mqqt_url_str)
     mqttc.username_pw_set(url.username, url.password)
     mqttc.connect(url.hostname, url.port)
@@ -169,8 +171,8 @@ if __name__ == '__main__':
     for unit_num in range(0, unit_count, 1):
         unit_name = unit_data["units"][unit_num]["room"].lower()
         for key, value in unit_state[unit_num].items():
-            topic = 'c'+key
-            mqttc.subscribe([("/sensors_hvac/%s/%s" % (unit_name, topic), 0),("/sensors_hvac/downstairs/mode_command_topic", 0),("/sensors_hvac/lounge/target_temp", 0),("/sensors_hvac/downstairs/target_temp", 0)])
+            topic = key
+            mqttc.subscribe([("/sensors_hvac/%s/%s" % (unit_name, topic), 0)])
   
     
     
