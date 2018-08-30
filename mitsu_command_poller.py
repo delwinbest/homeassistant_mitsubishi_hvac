@@ -10,7 +10,7 @@ import configparser
 import requests
 import logging
 
-logging.basicConfig(filename="mitsu.log",level=logging.DEBUG,format='%(asctime)s - %(name)s - %(threadName)s - %(message)s')
+logging.basicConfig(filename="mitsu_command_poller.log",level=logging.DEBUG,format='%(asctime)s - %(name)s - %(threadName)s - %(message)s')
 
 def createDaemon():
 # This function create a service/Daemon
