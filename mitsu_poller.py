@@ -11,23 +11,26 @@ import requests
 # Mitsubishi Functions
 def mitsu_getcookie():
     headers = {'Accept': 'application/json, text/javascript, */*'}
-    payload = {'user': user, 'pass': password, 'appversion': '3.2.673a'}
+    payload = {'user': user, 'pass': password, 'appversion': '3.3.838'}
     r = requests.post("%s/api/login.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
+    print("logged in")
     return r.headers.get('Set-cookie')
 
 def mitsu_getunits():
     r = requests.post("%s/api/rooms.aspx?_=1513470690197" % melview_endpoint, headers=headers)
     json_format = json.loads(r.text)
+    print("got unit info: " + r.text)
     return json_format[0]
 
 def mitsu_getstates():
     unit_state = []
     for unit_num in range(0, unit_count, 1):
         unit_id = int(unit_data["units"][unit_num]["unitid"])
-        payload = {'unitid': unit_id, 'v': '2'}
+        payload = {'unitid': unit_id, "v": 3}
         r = requests.post("%s/api/unitcommand.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
         json_return = r.text
         unit_state.append(json.loads(json_return))
+        print("got state info: " + r.text)
     return unit_state
 
 def mitsu_senddata(datadict):       
@@ -42,7 +45,7 @@ def mitsu_senddata(datadict):
         if key == 'airdir':
             value = aircon_airdir[value]
         mqttc.publish('/sensors_hvac/%s/%s' % (unit_name, key), value)
-            
+        print("mqtt publish: sensors_hvac/" + unit_name + "/" + key + " value = " + str(value))
 # Define event callbacks
 def on_connect(client, userdata, flags, rc):
     print("rc: " + str(rc))
@@ -67,6 +70,7 @@ mqttc.on_message = on_message
 #mqttc.on_connect = on_connect
 #mqttc.on_publish = on_publish
 #mqttc.on_subscribe = on_subscribe
+mqttc.on_log = on_log
 
 # Mitsubishi and MQTT Params and Creds
 # Import credentials, cause I don't want these on GIT :)

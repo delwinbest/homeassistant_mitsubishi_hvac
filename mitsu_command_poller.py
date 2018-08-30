@@ -8,7 +8,9 @@ from urllib.parse import urlparse
 from pprint import pprint
 import configparser 
 import requests
+import logging
 
+logging.basicConfig(filename="mitsu.log",level=logging.DEBUG,format='%(asctime)s - %(name)s - %(threadName)s - %(message)s')
 
 def createDaemon():
 # This function create a service/Daemon
@@ -16,10 +18,10 @@ def createDaemon():
     # Store the Fork PID
     pid = os.fork()
     if pid > 0:
-      print("PID: %d" % pid)
+      logging.debug("PID: %d" % pid)
       os._exit(0)
   except OSError as error:
-    print("Unable to fork. Error: %d (%s)" % (error.errno, error.strerror))
+    logging.debug("Unable to fork. Error: %d (%s)" % (error.errno, error.strerror))
     os._exit(1)
 
   run_poller()
@@ -29,16 +31,20 @@ def mitsu_getcookie():
     headers = {'Accept': 'application/json, text/javascript, */*'}
     payload = {'user': user, 'pass': password, 'appversion': '3.3.838'}
     r = requests.post("%s/api/login.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
+    logging.debug("logged in response: " + r.text)
     return r.headers.get('Set-cookie')
 
 def mitsu_getunits():
     r = requests.post("%s/api/rooms.aspx?_=1513470690197" % melview_endpoint, headers=headers)
     json_format = json.loads(r.text)
+    logging.debug("got unit info: " + r.text)
     return json_format[0]
 
 def mitsu_sendcmd(unit_id, shortcmd, value):
-    payload = {"unitid":"%s" % (unit_id), "v":2, "lc":1, "commands":"%s%s" %(shortcmd, value)}
+    payload = {"unitid":"%s" % (unit_id), "v":3, "commands":"%s%s" %(shortcmd, value)}
+    logging.debug("payload to melview: " + str(payload))
     r = requests.post("%s/api/unitcommand.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
+    logging.debug("response from melview: " + r.text)
     json_format = json.loads(r.text)
     return json_format
     
@@ -46,10 +52,11 @@ def mitsu_getstates():
     unit_state = []
     for unit_num in range(0, unit_count, 1):
         unit_id = int(unit_data["units"][unit_num]["unitid"])
-        payload = {'unitid': unit_id, 'v': '2'}
+        payload = {"unitid": unit_id, "v":3}
         r = requests.post("%s/api/unitcommand.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
         json_return = r.text
         unit_state.append(json.loads(json_return))
+        logging.debug("got state info: " + r.text)
     return unit_state
 
 def mitsu_senddata(datadict):       
@@ -64,14 +71,15 @@ def mitsu_senddata(datadict):
         if key == 'airdir':
             value = aircon_airdir[value]
         mqttc.publish('/sensors_hvac/%s/%s' % (unit_name, key), value)
+        logging.debug("mqtt publish: /sensors_hvac/" + unit_name + "/" + key + " value = " + str(value))
                 
 # Define event callbacks
 def on_connect(client, userdata, flags, rc):
-    print("rc: " + str(rc))
+    logging.debug("rc: " + str(rc))
     
 # Handle incoming MQQT message and translate
 def on_message(client, obj, msg):
-    # print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+    # logging.debug(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
     # Break out the command and topic from the MQQT topic
     topic = msg.topic.split("/")
     unit_name= topic[2]
@@ -79,40 +87,47 @@ def on_message(client, obj, msg):
     data = msg.payload.decode('ascii')
     # Assign default to value, might be overriden later by specific commands
     value = data
-    print(unit_name + command + data)
+    logging.debug("message received " + unit_name + " " + command + " " + data)
     # Find Unit ID
     if command in mitsu_command_codes:
         for unit_num in range(0, unit_count, 1):
             if  unit_name.capitalize() in unit_data["units"][unit_num].values():
                 unit_id = unit_data["units"][unit_num]["unitid"]      
+        #this converts setmode = off (HA) to power = 0 (melview)
         if command == 'setmode':
             if data == "off":
                 value = 0
                 command = 'power'
             else:
                 value = aircon_modes.index(data)
-        if command == 'setfan':
-            value = aircon_cfanspeed[data]
-        if command == 'airdir':
-            value = aircon_cairdir[value]   
+        if command == 'power':
+            if data == "off":
+                value = 0
+#            else:
+#                value = 1
+#        if command == 'setfan':
+#            value = aircon_cfanspeed[data]
+#        if command == 'airdir':
+#            value = aircon_cairdir[value]
         r = mitsu_sendcmd(unit_id, mitsu_command_codes[command], value)
         # Send return data to MQTT and update Home Assistant
-        mitsu_senddata(r)
-        
+        # avoid for now due to loop
+        # mitsu_senddata(r)
+	
     else:
-        print("Unsupported command")
+        logging.debug("Unsupported command")
         return
 #   if command == 'mode_command_topic':
 #        mode = aircon_modes.index(msg.payload.decode('ascii'))
 #        mqttc.publish('/sensors_hvac/%s/mode_state_topic' % unit_name, aircon_modes[unit_state[unit_num]["setmode"]])
 
 #def on_publish(client, obj, mid):
-#    print("mid: " + str(mid))
+#    logging.debug("mid: " + str(mid))
 def on_subscribe(client, obj, mid, granted_qos):
-    print("Subscribed: " + str(mid) + " " + str(granted_qos))
+    logging.debug("Subscribed: " + str(mid) + " " + str(granted_qos))
 
 def on_log(client, obj, level, string):
-    print(string)
+    logging.debug(string)
 
 def run_poller():
     #def run_poller():     
@@ -138,7 +153,10 @@ if __name__ == '__main__':
     melview_endpoint = "https://api.melview.net"
     
     # Mitsubishi comman code translation
-    mitsu_command_codes = {"setfan":"FS", "airdir":"AV", "setmode":"PW1,MD", "power":"PW", "settemp":"TS"}
+    # all codes:
+    # mitsu_command_codes = {"setfan":"FS", "airdir":"AV", "setmode":"PW1,MD", "power":"PW", "settemp":"TS"}
+    # minimal codes:
+    mitsu_command_codes = {"setmode":"PW1,MD", "power":"PW", "settemp":"TS"}
     # Mapping values (Mitsubishi) to command words (HA)
     aircon_modes = ['0','heat','dry','cool','4','5','6','fan_only','auto','off']
     aircon_fanspeeds = ['auto','low','low','medium','medium','high','high']
