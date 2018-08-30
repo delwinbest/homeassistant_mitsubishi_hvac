@@ -9,7 +9,7 @@ import configparser
 import requests
 import logging
 
-logging.basicConfig(filename="mitsu_poller.log",level=logging.DEBUG,format='%(asctime)s - %(name)s - %(threadName)s - %(message)s')
+logging.basicConfig(filename="/home/pi/mitsu/mitsu_poller.log",level=logging.DEBUG,format='%(asctime)s - %(name)s - %(threadName)s - %(message)s')
 
 # Mitsubishi Functions
 def mitsu_getcookie():
