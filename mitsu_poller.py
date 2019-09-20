@@ -7,27 +7,33 @@ from urllib.parse import urlparse
 from pprint import pprint
 import configparser 
 import requests
+import logging
+
+logging.basicConfig(filename="/home/pi/mitsu/mitsu_poller.log",level=logging.DEBUG,format='%(asctime)s - %(name)s - %(threadName)s - %(message)s')
 
 # Mitsubishi Functions
 def mitsu_getcookie():
     headers = {'Accept': 'application/json, text/javascript, */*'}
-    payload = {'user': user, 'pass': password, 'appversion': '3.2.673a'}
+    payload = {'user': user, 'pass': password, 'appversion': '3.3.838'}
     r = requests.post("%s/api/login.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
+    logging.debug("logged in")
     return r.headers.get('Set-cookie')
 
 def mitsu_getunits():
     r = requests.post("%s/api/rooms.aspx?_=1513470690197" % melview_endpoint, headers=headers)
     json_format = json.loads(r.text)
+    logging.debug("got unit info: " + r.text)
     return json_format[0]
 
 def mitsu_getstates():
     unit_state = []
     for unit_num in range(0, unit_count, 1):
         unit_id = int(unit_data["units"][unit_num]["unitid"])
-        payload = {'unitid': unit_id, 'v': '2'}
+        payload = {'unitid': unit_id, "v": 3}
         r = requests.post("%s/api/unitcommand.aspx" % melview_endpoint, headers=headers, data=json.dumps(payload))
         json_return = r.text
         unit_state.append(json.loads(json_return))
+        logging.debug("got state info: " + r.text)
     return unit_state
 
 def mitsu_senddata(datadict):       
@@ -42,24 +48,24 @@ def mitsu_senddata(datadict):
         if key == 'airdir':
             value = aircon_airdir[value]
         mqttc.publish('/sensors_hvac/%s/%s' % (unit_name, key), value)
-            
+        logging.debug("mqtt publish: sensors_hvac/" + unit_name + "/" + key + " value = " + str(value))
 # Define event callbacks
 def on_connect(client, userdata, flags, rc):
-    print("rc: " + str(rc))
+    logging.debug("rc: " + str(rc))
 
 # Handle incoming MQQT message and translate
 def on_message(client, obj, msg):
-     print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+     logging.debug(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
     # Break out the command and topic from the MQQT topic
 
 #def on_publish(client, obj, mid):
 #    print("mid: " + str(mid))
 
 def on_subscribe(client, obj, mid, granted_qos):
-    print("Subscribed: " + str(mid) + " " + str(granted_qos))
+    logging.debug("Subscribed: " + str(mid) + " " + str(granted_qos))
 
 def on_log(client, obj, level, string):
-    print(string)
+    logging.debug(string)
 
 mqttc = mqtt.Client()
 # Assign event callbacks
@@ -67,6 +73,7 @@ mqttc.on_message = on_message
 #mqttc.on_connect = on_connect
 #mqttc.on_publish = on_publish
 #mqttc.on_subscribe = on_subscribe
+mqttc.on_log = on_log
 
 # Mitsubishi and MQTT Params and Creds
 # Import credentials, cause I don't want these on GIT :)
